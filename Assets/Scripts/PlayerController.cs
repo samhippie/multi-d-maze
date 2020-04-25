@@ -57,11 +57,15 @@ public class PlayerController : MonoBehaviour {
 			return trimToVector3(rot).normalized;
 		}
 
+		public Vector3 GetUpVector() {
+			return trimToVector3(up).normalized;
+		}
+
 		public void LookUp(float step) {
 			var subRot = trimToVector3(rot).normalized;
 			var subUp = trimToVector3(up).normalized;
 			var axis = Vector3.Cross(subRot, subUp).normalized;
-			var quat = Quaternion.AngleAxis(30 * step, axis);
+			var quat = Quaternion.AngleAxis(10 * step, axis);
 			subRot = quat * subRot;
 			subUp = quat * subUp;
 			setVector3To4(rot, subRot);
@@ -71,7 +75,7 @@ public class PlayerController : MonoBehaviour {
 		public void LookLeft(float step) {
 			var subRot = trimToVector3(rot).normalized;
 			var subUp = trimToVector3(up).normalized;
-			var quat = Quaternion.AngleAxis(30 * step, subUp);
+			var quat = Quaternion.AngleAxis(10 * step, subUp);
 			subRot = quat * subRot;
 			setVector3To4(rot, subRot);
 		}
@@ -115,6 +119,11 @@ public class PlayerController : MonoBehaviour {
 		}
 	}
 
+	string GetDirText()
+	{
+		return "Looking: (" + string.Join(", ", player.rot.Select(p => p.ToString("0.0"))) + ")";
+	}
+
 	void SetFocus(bool focus) {
 		this.focus = focus;
 		if(focus) {
@@ -124,30 +133,19 @@ public class PlayerController : MonoBehaviour {
 		}
 	}
 
-	/*
-	//collision code is a bit of a mess but it works right now
-	void OnCollisionEnter(Collision col) {
-		if(!hasCollided) {
-			hasCollided = true;
-			if(col.contacts.Length > 0) {
-				colNorm = col.contacts[0].normal;
-			}
-			player.fixMove(colNorm);
-		}
-	}
+	private int keyDown = 0;
 
-	void OnCollisionStay(Collision col) {
-		if(!hasCollided) {
-			hasCollided = true;
-			if(col.contacts.Length > 0) {
-				//-1 because I think the normal gets flipped around
-				//when you're inside
-				colNorm = 1 * col.contacts[0].normal;
-			}
-			player.fixMove(colNorm);
-		}
-	}
-	*/
+	void Update()
+    {
+		if (Input.GetKeyDown("1"))
+			keyDown = 1;
+		else if (Input.GetKeyDown("2"))
+			keyDown = 2;
+		else if (Input.GetKeyDown("3"))
+			keyDown = 3;
+		else if (Input.GetKeyDown("4"))
+			keyDown = 4;
+    }
 
 	void FixedUpdate () {
 		//handle focus
@@ -158,16 +156,20 @@ public class PlayerController : MonoBehaviour {
 			SetFocus(false);
 		}
 
-		if(Input.GetKeyDown("1") && player.outDimen != 0) {
+		if(keyDown == 1 && player.outDimen != 0) {
 			player.SetOutDimen(0);
-		} else if(Input.GetKeyDown("2") && player.outDimen != 1) {
+			keyDown = 0;
+		} else if(keyDown == 2 && player.outDimen != 1) {
 			player.SetOutDimen(1);
-		} else if(Input.GetKeyDown("3") && player.outDimen != 2) {
+			keyDown = 0;
+		} else if(keyDown == 3 && player.outDimen != 2) {
 			player.SetOutDimen(2);
-		} else if(Input.GetKeyDown("4") && player.outDimen != 3) {
+			keyDown = 0;
+		} else if(keyDown == 4 && player.outDimen != 3) {
 			player.SetOutDimen(3);
+			keyDown = 0;
 		}
-		dimenText.text = GetDimenText(player.outDimen);
+		dimenText.text = GetDimenText(player.outDimen) + " " + GetDirText();
 
 		//get all the inputs
 		float moveHorizontal = Input.GetAxis("Horizontal");
@@ -190,8 +192,10 @@ public class PlayerController : MonoBehaviour {
 			player.isPosInvalid = false;
 		} else {
 			rb.AddForce(100 * player.GetRotVector() * moveVertical * Time.deltaTime * speed);
+			rb.AddForce(100 * Vector3.Cross(player.GetUpVector(), player.GetRotVector()) * moveHorizontal * Time.deltaTime * speed);
 			player.SetPos(transform.position);
 		}
+		GameManager.instance.UpdatePlayerPostion(player.pos);
 		rb.MoveRotation(player.GetRot());
 	}
 }
