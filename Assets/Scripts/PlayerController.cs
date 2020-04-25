@@ -127,9 +127,9 @@ public class PlayerController : MonoBehaviour {
 	void SetFocus(bool focus) {
 		this.focus = focus;
 		if(focus) {
-			//Cursor.lockState = CursorLockMode.Locked;
+			Cursor.lockState = CursorLockMode.Locked;
 		} else {
-			//Cursor.lockState = CursorLockMode.None;
+			Cursor.lockState = CursorLockMode.None;
 		}
 	}
 
@@ -145,16 +145,17 @@ public class PlayerController : MonoBehaviour {
 			keyDown = 3;
 		else if (Input.GetKeyDown("4"))
 			keyDown = 4;
-    }
 
-	void FixedUpdate () {
-		//handle focus
 		if(Input.GetMouseButtonDown(0)) {
 			SetFocus(true);
 		}
-		if(Input.GetKeyDown("escape")) {
+		if (Input.GetKeyDown("escape"))
+		{
 			SetFocus(false);
 		}
+    }
+
+	void FixedUpdate () {
 
 		if(keyDown == 1 && player.outDimen != 0) {
 			player.SetOutDimen(0);
