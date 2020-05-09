@@ -187,16 +187,16 @@ public class PlayerController : MonoBehaviour {
 		//apply all the inputs to the player
 		player.LookUp(mouseY);
 		player.LookLeft(mouseX);
-		player.RollCW(moveRoll * Time.deltaTime * smooth);
+		player.RollCW(-moveRoll * Time.fixedDeltaTime * smooth);
 		if(player.isPosInvalid) {
 			rb.MovePosition(player.GetPos());
 			player.isPosInvalid = false;
 		} else {
-			rb.AddForce(100 * player.GetRotVector() * moveVertical * Time.deltaTime * speed);
-			rb.AddForce(100 * Vector3.Cross(player.GetUpVector(), player.GetRotVector()) * moveHorizontal * Time.deltaTime * speed);
+			rb.AddForce(100 * player.GetRotVector() * moveVertical * Time.fixedDeltaTime * speed);
+			rb.AddForce(100 * Vector3.Cross(player.GetUpVector(), player.GetRotVector()) * moveHorizontal * Time.fixedDeltaTime * speed);
 			player.SetPos(transform.position);
 		}
-		GameManager.instance.UpdatePlayerPostion(player.pos);
+		GameManager.instance.UpdatePlayerPostion(player.pos, player.up);
 		rb.MoveRotation(player.GetRot());
 	}
 }

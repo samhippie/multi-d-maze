@@ -13,7 +13,9 @@ public class GameManager : MonoBehaviour {
 	public GameObject wall;
 	public GameObject goal;
 	public GameObject breadcrumb;
+	public GameObject playerMarker;
 	public AudioSource goalAudio;
+	public Camera minimapCamera;
 
 	public List<int> startPos;
 
@@ -24,6 +26,7 @@ public class GameManager : MonoBehaviour {
 	private int outDimen = -1;//-1 is invalid, which forces an initial update
 
 	private List<GameObject> curGameObjects = new List<GameObject>();
+	private List<GameObject> minimapObjects = new List<GameObject>();
 
 	private List<float> goalPos;
 
@@ -151,6 +154,10 @@ public class GameManager : MonoBehaviour {
 
 	}
 
+	private float Cross(List<float> a, List<float> b) => a.Zip(b, (a1, b1) => a1 * b1).Sum();
+
+	private float Mag(List<float> a) => (float) Math.Sqrt(a.Select(x => x * x).Sum());
+
 	public void UpdateOutDimen(int outDimen, int outDimenVal) {
 		outDimenVal += offset;
 		var hasOther = data.Where(d => d != 1).ToList();
@@ -187,8 +194,93 @@ public class GameManager : MonoBehaviour {
 		}
 	}
 
-	public void UpdatePlayerPostion(List<float> playerPos)
+	private readonly float MINIMAP_DISTANCE = 10f;
+	private int prevPlayerIndex = -1;
+	private (int, int) prevExcludedDimens = (-1, -1);
+	public void UpdateMinimap(List<float> playerPos, List<float> playerUp, int outDimen)
+	{
+		var playerIndex = CoordsToIndex(playerPos.Select(p => (int) Math.Round(p + offset)).ToList());
+		var center = minimapCamera.transform.position + minimapCamera.transform.forward * MINIMAP_DISTANCE;
+
+		//figuring out which plane the player is looking in
+		//which is the plane with the greatest angle to the up vector
+		//I think in 4d, we can find the angle between a vector v and a 3-space XYZ by letting n = (0, 0, 0, v_w)
+		//and considering |dot(n, v)| / (|n| * |v|)
+		//once we find minimal space XYZ, ignore the out dimension (skip the 3-space that excludes the out dimen)
+		//and now we have a plane that is in view
+		var bestDimen = 0;
+		var maxAngle = 0f;
+		for (var d = 0; d < 4; d++)
+		{
+			if (d == outDimen) continue;
+			var n = new List<float> { 0, 0, 0, 0 };
+			//can't be the best option and will mess up our math later
+			if (playerUp[d] == 0) continue;
+			n[d] = playerUp[d];
+			//btw sin(x) = x
+			var angle = Math.Abs(Cross(n, playerUp)) / (Mag(n) * Mag(playerUp));
+			if (angle > maxAngle)
+			{
+				maxAngle = angle;
+				bestDimen = d;
+			}
+		}
+
+		if (prevPlayerIndex == playerIndex && prevExcludedDimens == (outDimen, bestDimen))
+		{
+			return;
+		}
+		prevPlayerIndex = playerIndex;
+		prevExcludedDimens = (outDimen, bestDimen);
+
+		foreach (var obj in minimapObjects)
+		{
+			Destroy(obj);
+		}
+		minimapObjects.Clear();
+		for (var i = 0; i < size; i++)
+		{
+			for (var j = 0; j < size; j++)
+			{
+				var index = 0;
+				var coord = j;
+				//least significant factors correspond to the higher dimensions
+				//this is not intentional, but the rest of this script has been working like that for a while
+				//and I guess it doesn't matter
+				for (var d = 0; d < 4; d++)
+				{
+					if (d == bestDimen || d == outDimen)
+					{
+						index += ((int) Math.Round(playerPos[d] + offset)) * (int) Math.Pow(size, 3 - d);
+					}
+					else
+					{
+                        index += coord * (int) Math.Pow(size, 3 - d);
+                        coord = i;
+					}
+				}
+                GameObject type;
+				if (index == playerIndex)
+					type = playerMarker;
+				else if (data[index] == 1)
+					type = wall;
+				else if (data[index] == 3)
+					type = breadcrumb;
+				else
+					continue;
+                //I should make this generic and assume the camera isn't pointed down
+                var pos = center;
+                pos.x += i - size / 2;
+                pos.z += j - size / 2;
+                minimapObjects.Add(Instantiate(type, pos, Quaternion.identity));
+			}
+		}
+	}
+
+	public void UpdatePlayerPostion(List<float> playerPos, List<float> playerUp)
     {
+		UpdateMinimap(playerPos, playerUp, outDimen);
+
 		var playerIndex = CoordsToIndex(playerPos.Select(p => (int) Math.Round(p + offset)).ToList());
 		if (playerIndex > data.Count || playerIndex < 0)
 		{
@@ -212,13 +304,10 @@ public class GameManager : MonoBehaviour {
 		soundPos = soundPos.normalized;
 		var distance4 = Math.Sqrt(playerPos.Zip(offsetGoalPos, (p, g) => (p - g) * (p - g)).Sum());
 		var distance3 = (float) Math.Pow(distance4, 1.5);
-		Debug.Log("distance3 " + distance3);
-		Debug.Log("distance4 " + distance4);
 		soundPos = Vector3.Scale(soundPos, new Vector3(distance3, distance3, distance3));
 		soundPos += player3;
 		goalAudio.gameObject.transform.SetPositionAndRotation(soundPos, Quaternion.identity);
     }
-
 
 	// Use this for initialization
 	void Start () {
